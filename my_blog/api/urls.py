@@ -5,8 +5,8 @@ from .views import VideoViewSet
 
 router = DefaultRouter()
 
-router.register(r'videos', VideoViewSet, basename='video')
+router.register(prefix='videos', viewset=VideoViewSet, basename='video')
 
 urlpatterns = [
-    path('', include(router.urls))
+    path(route='', view=include(router.urls))
 ]

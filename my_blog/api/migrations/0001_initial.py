@@ -30,7 +30,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='likes', to=settings.AUTH_USER_MODEL)),
-                ('video', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='likes', to='video_platform.video')),
+                ('video', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='likes', to='api.video')),
             ],
         ),
         migrations.CreateModel(
@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('file', models.FileField(upload_to='videos/')),
                 ('quality', models.CharField(choices=[('HD', 'HD'), ('FHD', 'FHD'), ('UHD', 'UHD')], default='HD', max_length=10)),
-                ('video', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='files', to='video_platform.video')),
+                ('video', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='files', to='api.video')),
             ],
         ),
         migrations.AddIndex(
