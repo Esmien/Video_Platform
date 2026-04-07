@@ -1,18 +1,59 @@
-from rest_framework import viewsets, status
+from django.contrib.auth import get_user_model
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter, extend_schema_view
+from rest_framework import viewsets, status, generics
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
-from django.db.models import Q, Subquery, OuterRef, Count, F
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, AllowAny
+from django.db.models import Q, Subquery, OuterRef, Count, F, QuerySet
 from django.db.models.functions import Coalesce
 from django.db import transaction
 
 from .models import Video, Like
-from .serializers import VideoSerializer, VideoExpandedSerializer
+from .serializers import VideoSerializer, VideoExpandedSerializer, RegisterSerializer
 from .permissions import IsPublishedOrOwner
 
+User = get_user_model()
 
+class RegisterView(generics.CreateAPIView):
+    """ Представление регистрации пользователя """
+
+    queryset = User.objects.all()
+    permission_classes = (AllowAny,)
+    serializer_class = RegisterSerializer
+
+@extend_schema_view(
+    list=extend_schema(
+        summary="Список видео",
+        description="""
+        Получение списка видео.
+        Отдает записи из БД со всеми доступными видео.
+        Неавторизованные пользователи видят только опубликованные ролики.
+        """
+    ),
+    retrieve=extend_schema(
+        summary="Детали о видео",
+        description="""
+        Получение конкретного видео.
+        Отдает конкретную запись по ID.
+        При статусе `is_published=False` видео видно только его владельцу.
+        """
+    )
+)
 class VideoViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet для работы с видео-платформой.
+
+    Endpoints:
+        * (GET) /v1/videos/ - Отдает записи из БД со всеми видео
+        * (GET) /v1/videos/{id}/ - Отдает конкретную запись по ID (при статусе is_published=False видео видны только owner'у)
+        * (POST) /v1/videos/{id}/likes/ - Ставит лайк от пользователя на выбранное видео, требуется авторизация
+        * (GET) /v1/videos/ids/ - Отдает список ID всех опубликованных видео
+        * (GET) /v1/videos/statistics-group-by/ - Отдает статистику по всем видео в формате video_id: total_likes при помощи GROUP BY
+        * (GET) /v1/videos/statistics-subquery/ - Отдает статистику по всем видео в формате video_id: total_likes при помощи подзапроса
+    """
+
     permission_classes = (IsAuthenticatedOrReadOnly, IsPublishedOrOwner)
 
     def get_queryset(self):
@@ -37,9 +78,21 @@ class VideoViewSet(viewsets.ReadOnlyModelViewSet):
 
         return VideoSerializer
 
+    def _get_paginated_response(self, queryset: QuerySet) -> Response:
+        """Вспомогательный метод для пагинации кастомных QuerySet"""
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            return self.get_paginated_response(page)
+
+        return Response(list(queryset), status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def likes(self, request: Request, pk: int | None=None) -> Response:
-        """ POST /v1/videos/{video.id}/likes/ """
+        """
+        **`POST` /v1/videos/{id}/likes/**
+          Ставит лайк от пользователя на выбранное видео. **Требуется авторизация**.
+          """
 
         # get_object() сам проверит IsPublishedOrOwner и выкинет 404/403
         video = self.get_object()
@@ -70,18 +123,27 @@ class VideoViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(data={'detail': msgs['SUCCESS']}, status=status.HTTP_201_CREATED)
 
+    @extend_schema(parameters=[
+        OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Номер страницы для пагинации')])
     @action(detail=False, methods=['get'])
     def ids(self, request: Request) -> Response:
-        """ GET /v1/videos/ids/ """
+        """
+         **`GET` /v1/videos/ids/**
+          Отдает плоский список ID всех опубликованных видео.
+          """
 
-        # достаем ID всех опубликованных видео сразу в плоский список
-        video_ids = Video.objects.filter(is_published=True).values_list('id', flat=True)
+        video_ids = Video.objects.filter(is_published=True).order_by('id').values_list('id', flat=True)
 
-        return Response(list(video_ids), status=status.HTTP_200_OK)
+        return self._get_paginated_response(video_ids)
 
+    @extend_schema(parameters=[
+        OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Номер страницы для пагинации')])
     @action(detail=False, methods=['get'], url_path='statistics-subquery')
     def statistics_subquery(self, request: Request) -> Response:
-        """ GET /v1/videos/statistics-subquery/ """
+        """
+         **`GET` /v1/videos/statistics-subquery/**
+          Отдает статистику по всем видео в формате `video_id: total_likes` при помощи подзапроса `Subquery`.
+          """
 
         # Подзапрос: считаем лайки для основного запроса
         likes_sq = Like.objects.filter(
@@ -91,18 +153,21 @@ class VideoViewSet(viewsets.ReadOnlyModelViewSet):
         # Основной запрос: аннотируем результат подзапроса
         qs = Video.objects.annotate(
             calculated_likes=Coalesce(Subquery(likes_sq), 0)
-        ).values('id', 'calculated_likes')
+        ).values('id', 'calculated_likes').order_by('id')
 
-        results = [{"id": item['id'], "total_likes": item['calculated_likes']} for item in qs]
-        return Response(results, status=status.HTTP_200_OK)
+        return self._get_paginated_response(qs)
 
+    @extend_schema(parameters=[
+        OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Номер страницы для пагинации')])
     @action(detail=False, methods=['get'], url_path='statistics-group-by')
     def statistics_group_by(self, request):
-        """ GET /v1/videos/statistics-group-by/ """
-        # values() перед annotate(), чтобы ОРМ сделала группировку по указанным полям
+        """
+         **`GET` /v1/videos/statistics-group-by/**
+          Отдает статистику по всем видео в формате `video_id: total_likes` при помощи агрегации `GROUP BY`.
+          """
+        # values() перед annotate(), чтобы ОРМ сделала группировку по указанным полям и left join для видео-лайки
         qs = Video.objects.values('id').annotate(
             calculated_likes=Count('likes')
-        )
+        ).order_by('id')
 
-        results = [{"id": item['id'], "total_likes": item['calculated_likes']} for item in qs]
-        return Response(results, status=status.HTTP_200_OK)
+        return self._get_paginated_response(qs)
