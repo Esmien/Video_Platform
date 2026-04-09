@@ -6,13 +6,13 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, AllowAny
-from django.db.models import Q, Subquery, OuterRef, Count, F, QuerySet
-from django.db.models.functions import Coalesce
-from django.db import transaction
+from django.db.models import Q, QuerySet
 
+from .mixins import PaginatedResponseMixin
 from .models import Video, Like
 from .serializers import VideoSerializer, VideoExpandedSerializer, RegisterSerializer
 from .permissions import IsPublishedOrOwner
+from .services import LikeService, VideoService
 
 User = get_user_model()
 
@@ -41,7 +41,7 @@ class RegisterView(generics.CreateAPIView):
         """
     )
 )
-class VideoViewSet(viewsets.ReadOnlyModelViewSet):
+class VideoViewSet(PaginatedResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     ViewSet для работы с видео-платформой.
 
@@ -57,7 +57,7 @@ class VideoViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly, IsPublishedOrOwner)
 
     def get_queryset(self):
-        # делаем inner join, подтягивая таблицу с пользователями
+        # делаем inner join с User, подтягивая таблицу с пользователями
         qs = Video.objects.select_related('owner').all()
 
         # отдаем список опубликованных видео либо список видео автора
@@ -78,14 +78,6 @@ class VideoViewSet(viewsets.ReadOnlyModelViewSet):
 
         return VideoSerializer
 
-    def _get_paginated_response(self, queryset: QuerySet) -> Response:
-        """Вспомогательный метод для пагинации кастомных QuerySet"""
-
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            return self.get_paginated_response(page)
-
-        return Response(list(queryset), status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def likes(self, request: Request, pk: int | None=None) -> Response:
@@ -94,34 +86,12 @@ class VideoViewSet(viewsets.ReadOnlyModelViewSet):
           Ставит лайк от пользователя на выбранное видео. **Требуется авторизация**.
           """
 
-        # get_object() сам проверит IsPublishedOrOwner и выкинет 404/403
-        video = self.get_object()
-        user = request.user
+        user_id = request.user.pk
+        video_id = pk
 
-        msgs = {
-            'SELF_LIKE': 'Нельзя поставить лайк самому себе',
-            'DUPLICATE': 'Вы уже ставили лайк',
-            'SUCCESS': 'Лайк поставлен',
-        }
+        response_data, status_code = LikeService.put_like(user_id=user_id, video_id=video_id)
 
-        if video.owner == user:
-            return Response(data={'detail': msgs['SELF_LIKE']}, status=status.HTTP_400_BAD_REQUEST)
-
-        # transaction.atomic() и select_for_update() спасают от race condition, образовывая очередь из запросов,
-        # если два юзера одновременно лайкнут видео, total_likes обновится корректно
-        with transaction.atomic():
-            video = Video.objects.select_for_update().get(pk=video.pk)
-
-            # Попытка поставить лайк, если он уже есть, created будет False
-            like, created = Like.objects.get_or_create(video=video, user=user)
-            if not created:
-                return Response(data={'detail': msgs['DUPLICATE']}, status=status.HTTP_400_BAD_REQUEST)
-
-            # безопасно увеличиваем счетчик лайков на стороне бд
-            video.total_likes = F('total_likes') + 1
-            video.save(update_fields=['total_likes'])
-
-        return Response(data={'detail': msgs['SUCCESS']}, status=status.HTTP_201_CREATED)
+        return Response(data=response_data, status=status_code)
 
     @extend_schema(parameters=[
         OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Номер страницы для пагинации')])
@@ -132,7 +102,7 @@ class VideoViewSet(viewsets.ReadOnlyModelViewSet):
           Отдает плоский список ID всех опубликованных видео.
           """
 
-        video_ids = Video.objects.filter(is_published=True).order_by('id').values_list('id', flat=True)
+        video_ids = VideoService.get_video_ids()
 
         return self._get_paginated_response(video_ids)
 
@@ -145,29 +115,19 @@ class VideoViewSet(viewsets.ReadOnlyModelViewSet):
           Отдает статистику по всем видео в формате `video_id: total_likes` при помощи подзапроса `Subquery`.
           """
 
-        # Подзапрос: считаем лайки для основного запроса
-        likes_sq = Like.objects.filter(
-            video=OuterRef('pk')
-        ).values('video').annotate(cnt=Count('id')).values('cnt')
-
-        # Основной запрос: аннотируем результат подзапроса
-        qs = Video.objects.annotate(
-            calculated_likes=Coalesce(Subquery(likes_sq), 0)
-        ).values('id', 'calculated_likes').order_by('id')
+        qs = VideoService.get_statistics_subquery()
 
         return self._get_paginated_response(qs)
 
     @extend_schema(parameters=[
         OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Номер страницы для пагинации')])
     @action(detail=False, methods=['get'], url_path='statistics-group-by')
-    def statistics_group_by(self, request):
+    def statistics_group_by(self, request: Request) -> Response:
         """
          **`GET` /v1/videos/statistics-group-by/**
           Отдает статистику по всем видео в формате `video_id: total_likes` при помощи агрегации `GROUP BY`.
           """
         # values() перед annotate(), чтобы ОРМ сделала группировку по указанным полям и left join для видео-лайки
-        qs = Video.objects.values('id').annotate(
-            calculated_likes=Count('likes')
-        ).order_by('id')
+        qs = VideoService.get_statistics_group_by()
 
         return self._get_paginated_response(qs)
