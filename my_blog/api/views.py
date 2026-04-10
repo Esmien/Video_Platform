@@ -1,3 +1,5 @@
+from enum import StrEnum
+
 from django.contrib.auth import get_user_model
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiParameter, extend_schema_view
@@ -6,13 +8,13 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, AllowAny
-from django.db.models import Q, QuerySet
+from django.db.models import Q
 
 from .mixins import PaginatedResponseMixin
-from .models import Video, Like
+from .models import Video
 from .serializers import VideoSerializer, VideoExpandedSerializer, RegisterSerializer
 from .permissions import IsPublishedOrOwner
-from .services import LikeService, VideoService
+from .services import LikeService, VideoService, VideoNotFoundError, SelfLikeError, DuplicateLikeError
 
 User = get_user_model()
 
@@ -54,6 +56,12 @@ class VideoViewSet(PaginatedResponseMixin, viewsets.ReadOnlyModelViewSet):
         * (GET) /v1/videos/statistics-subquery/ - Отдает статистику по всем видео в формате video_id: total_likes при помощи подзапроса
     """
 
+    class Messages(StrEnum):
+        DOES_NOT_EXIST = 'Видео не найдено'
+        SELF_LIKE = 'Нельзя поставить лайк самому себе'
+        DUPLICATE = 'Вы уже ставили лайк'
+        SUCCESS = 'Лайк поставлен'
+
     permission_classes = (IsAuthenticatedOrReadOnly, IsPublishedOrOwner)
 
     def get_queryset(self):
@@ -88,10 +96,16 @@ class VideoViewSet(PaginatedResponseMixin, viewsets.ReadOnlyModelViewSet):
 
         user_id = request.user.pk
         video_id = pk
+        try:
+            LikeService.put_like(user_id=user_id, video_id=video_id)
+        except VideoNotFoundError:
+            return Response({'detail': self.Messages.DOES_NOT_EXIST}, status.HTTP_404_NOT_FOUND)
+        except SelfLikeError:
+            return Response({'detail': self.Messages.SELF_LIKE}, status.HTTP_400_BAD_REQUEST)
+        except DuplicateLikeError:
+            return Response({'detail': self.Messages.DUPLICATE}, status.HTTP_400_BAD_REQUEST)
 
-        response_data, status_code = LikeService.put_like(user_id=user_id, video_id=video_id)
-
-        return Response(data=response_data, status=status_code)
+        return Response({'detail': self.Messages.SUCCESS}, status.HTTP_201_CREATED)
 
     @extend_schema(parameters=[
         OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Номер страницы для пагинации')])
