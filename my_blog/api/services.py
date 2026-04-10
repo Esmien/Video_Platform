@@ -1,18 +1,9 @@
-from enum import StrEnum
 from django.db import transaction
 from django.db.models import F, QuerySet, OuterRef, Count, Subquery
 from django.db.models.functions import Coalesce
 
 from .models import Video, Like
-
-class VideoNotFoundError(Exception):
-    pass
-
-class SelfLikeError(Exception):
-    pass
-
-class DuplicateLikeError(Exception):
-    pass
+from exceptions import *
 
 class LikeService:
     """ Бизнес-логика работы с лайками """
