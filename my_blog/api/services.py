@@ -3,7 +3,7 @@ from django.db.models import F, QuerySet, OuterRef, Count, Subquery
 from django.db.models.functions import Coalesce
 
 from .models import Video, Like
-from exceptions import *
+from .exceptions import *
 
 class LikeService:
     """ Бизнес-логика работы с лайками """
@@ -71,8 +71,10 @@ class VideoService:
 
         # Основной запрос: аннотируем результат подзапроса
         qs = Video.objects.annotate(
-            total_likes=Coalesce(Subquery(likes_sq), 0)
-        ).values('id', 'total_likes').order_by('id')
+            calculated_likes=Coalesce(Subquery(likes_sq), 0)
+        ).values('id', 'calculated_likes').order_by('id')
+        debug_qs = str(qs.query)
+        print(debug_qs)
 
         return qs
 
@@ -82,7 +84,9 @@ class VideoService:
 
         # values() перед annotate(), чтобы ОРМ сделала группировку по указанным полям и left join для видео-лайки
         qs = Video.objects.values('id').annotate(
-            total_likes=Count('likes')
+            calculated_likes=Count('likes')
         ).order_by('id')
+        debug_qs = str(qs.query)
+        print(debug_qs)
 
         return qs
