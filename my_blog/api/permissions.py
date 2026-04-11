@@ -10,4 +10,8 @@ class IsPublishedOrOwner(permissions.BasePermission):
         if obj.is_published:
             return True
 
-        return bool(request.user.is_authenticated and obj.owner == request.user)
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            obj.owner == request.user
+        )

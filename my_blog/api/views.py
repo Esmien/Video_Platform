@@ -6,7 +6,7 @@ from rest_framework import viewsets, status, generics
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q
 
 from .exceptions import VideoNotFoundError, SelfLikeError, DuplicateLikeError
@@ -62,7 +62,7 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
         DUPLICATE = 'Вы уже ставили лайк'
         SUCCESS = 'Лайк поставлен'
 
-    permission_classes = (IsAuthenticatedOrReadOnly, IsPublishedOrOwner)
+    permission_classes = [IsPublishedOrOwner]
 
     def get_queryset(self):
         # делаем inner join с User, подтягивая таблицу с пользователями
