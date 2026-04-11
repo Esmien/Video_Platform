@@ -3,7 +3,7 @@ from django.db.models import F, QuerySet, OuterRef, Count, Subquery
 from django.db.models.functions import Coalesce
 
 from .models import Video, Like
-from .exceptions import *
+from .exceptions import VideoNotFoundError, SelfLikeError, DuplicateLikeError
 
 class LikeService:
     """ Бизнес-логика работы с лайками """
@@ -40,6 +40,7 @@ class LikeService:
         # transaction.atomic() и select_for_update() спасают от race condition, образовывая очередь из запросов,
         # если два юзера одновременно лайкнут видео, total_likes обновится корректно
         with transaction.atomic():
+            # осознанно дублируем первый запрос для сокращения времени выполнения транзакции
             locked_video = Video.objects.select_for_update().get(pk=video_id)
 
             # проверка на дубликат лайка, если он уже есть, created будет False
@@ -73,8 +74,6 @@ class VideoService:
         qs = Video.objects.annotate(
             calculated_likes=Coalesce(Subquery(likes_sq), 0)
         ).values('id', 'calculated_likes').order_by('id')
-        debug_qs = str(qs.query)
-        print(debug_qs)
 
         return qs
 
@@ -86,7 +85,5 @@ class VideoService:
         qs = Video.objects.values('id').annotate(
             calculated_likes=Count('likes')
         ).order_by('id')
-        debug_qs = str(qs.query)
-        print(debug_qs)
 
         return qs

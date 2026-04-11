@@ -9,8 +9,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, AllowAny
 from django.db.models import Q
 
-from .exceptions import *
-from .mixins import PaginatedResponseMixin
+from .exceptions import VideoNotFoundError, SelfLikeError, DuplicateLikeError
+from .mixins import PaginatedResponseMixin, VideoCursorPagination, CursorPaginationMixin
 from .models import Video
 from .serializers import VideoSerializer, VideoExpandedSerializer, RegisterSerializer
 from .permissions import IsPublishedOrOwner
@@ -96,6 +96,7 @@ class VideoViewSet(PaginatedResponseMixin, viewsets.ReadOnlyModelViewSet):
 
         user_id = request.user.pk
         video_id = pk
+
         try:
             LikeService.put_like(user_id=user_id, video_id=video_id)
         except VideoNotFoundError:
