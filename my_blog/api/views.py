@@ -43,7 +43,7 @@ class RegisterView(generics.CreateAPIView):
         """
     )
 )
-class VideoViewSet(PaginatedResponseMixin, viewsets.ReadOnlyModelViewSet):
+class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     ViewSet для работы с видео-платформой.
 
