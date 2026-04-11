@@ -9,11 +9,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, AllowAny
 from django.db.models import Q
 
+from .exceptions import *
 from .mixins import PaginatedResponseMixin
 from .models import Video
 from .serializers import VideoSerializer, VideoExpandedSerializer, RegisterSerializer
 from .permissions import IsPublishedOrOwner
-from .services import LikeService, VideoService, VideoNotFoundError, SelfLikeError, DuplicateLikeError
+from .services import LikeService, VideoService
 
 User = get_user_model()
 
