@@ -12,7 +12,6 @@ from django.db.models import Q
 from .exceptions import VideoNotFoundError, SelfLikeError, DuplicateLikeError
 from .mixins import PaginatedResponseMixin, CursorPaginationMixin
 from .models import Video
-from .paginators import VideoLikesCursorPaginate
 from .serializers import VideoSerializer, VideoExpandedSerializer, RegisterSerializer
 from .permissions import IsPublishedOrOwner
 from .services import LikeService, VideoService
