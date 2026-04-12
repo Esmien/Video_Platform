@@ -10,8 +10,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q
 
 from .exceptions import VideoNotFoundError, SelfLikeError, DuplicateLikeError
-from .mixins import PaginatedResponseMixin, VideoCursorPagination, CursorPaginationMixin
+from .mixins import PaginatedResponseMixin, CursorPaginationMixin
 from .models import Video
+from .paginators import VideoLikesCursorPaginate
 from .serializers import VideoSerializer, VideoExpandedSerializer, RegisterSerializer
 from .permissions import IsPublishedOrOwner
 from .services import LikeService, VideoService
@@ -108,8 +109,14 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
 
         return Response({'detail': self.Messages.SUCCESS}, status.HTTP_201_CREATED)
 
-    @extend_schema(parameters=[
-        OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Номер страницы для пагинации')])
+    @extend_schema(
+        summary='Список ID всех видео',
+        parameters=[
+        OpenApiParameter(
+            name='cursor',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description='Курсор страницы для пагинации')])
     @action(detail=False, methods=['get'])
     def ids(self, request: Request) -> Response:
         """
@@ -119,10 +126,16 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
 
         video_ids = VideoService.get_video_ids()
 
-        return self._get_paginated_response(video_ids)
+        return self._get_paginated_response(queryset=video_ids)
 
-    @extend_schema(parameters=[
-        OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Номер страницы для пагинации')])
+    @extend_schema(
+        summary='Статистика через подзапрос',
+        parameters=[
+            OpenApiParameter(
+                name='cursor',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Курсор страницы для пагинации')])
     @action(detail=False, methods=['get'], url_path='statistics-subquery')
     def statistics_subquery(self, request: Request) -> Response:
         """
@@ -132,10 +145,16 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
 
         qs = VideoService.get_statistics_subquery()
 
-        return self._get_paginated_response(qs)
+        return self._get_paginated_response(queryset=qs)
 
-    @extend_schema(parameters=[
-        OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Номер страницы для пагинации')])
+    @extend_schema(
+        summary='Статистика через GROUP BY',
+        parameters=[
+            OpenApiParameter(
+                name='cursor',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Курсор страницы для пагинации')])
     @action(detail=False, methods=['get'], url_path='statistics-group-by')
     def statistics_group_by(self, request: Request) -> Response:
         """
@@ -145,4 +164,4 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
         # values() перед annotate(), чтобы ОРМ сделала группировку по указанным полям и left join для видео-лайки
         qs = VideoService.get_statistics_group_by()
 
-        return self._get_paginated_response(qs)
+        return self._get_paginated_response(queryset=qs)
