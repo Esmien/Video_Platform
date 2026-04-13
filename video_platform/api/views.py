@@ -40,7 +40,16 @@ class RegisterView(generics.CreateAPIView):
         Получение конкретного видео.
         Отдает конкретную запись по ID.
         При статусе `is_published=False` видео видно только его владельцу.
-        """
+        """,
+        parameters=[
+            OpenApiParameter(
+                name='user_expand',
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description='true раскрывает объект owner с деталями (id, username) вместо простого owner_id',
+                required=False,
+            ),
+        ]
     )
 )
 class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadOnlyModelViewSet):
