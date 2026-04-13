@@ -12,8 +12,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+#    ports:
+#      - "0.0.0.0:${DB_PORT}:${DB_PORT}"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 5s
@@ -23,16 +23,29 @@ services:
   api:
     build: .
     restart: always
-    command: bash -c "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn video_platform.wsgi:application --bind 0.0.0.0:8000"
+    command: bash -c "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn video_platform.wsgi:application --bind 0.0.0.0:${SERVER_PORT}"
     volumes:
       - .:/app
-    ports:
-      - "8000:8000"
+      - static_volume:/app/staticfiles
+    expose:
+      - ${SERVER_PORT}
     env_file:
       - .env
     depends_on:
       db:
         condition: service_healthy
 
+  nginx:
+    image: nginx:1.25-alpine
+    restart: always
+    ports:
+      - ${SERVER_PORT}:${NGINX_PORT} # <-- Теперь наружу на 8000 порту торчит Nginx, твои ссылки в README не сломаются
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/app/staticfiles # <-- Nginx получает доступ к статике, которую собрал Django
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
+  static_volume: # <-- Именованный volume для статики
