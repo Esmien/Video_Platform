@@ -18,7 +18,7 @@ services:
   api:
     build: .
     restart: always
-    command: bash -c "python manage.py collectstatic --noinput && python manage.py migrate && python manage.py generate_data && gunicorn my_blog.wsgi:application --bind 0.0.0.0:8000"
+    command: bash -c "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn video_platform.wsgi:application --bind 0.0.0.0:8000"
     volumes:
       - .:/app
     ports:
@@ -26,7 +26,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   postgres_data:

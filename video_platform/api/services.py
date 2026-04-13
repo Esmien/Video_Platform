@@ -72,8 +72,8 @@ class VideoService:
 
         # Основной запрос: аннотируем результат подзапроса
         qs = Video.objects.annotate(
-            calculated_likes=Coalesce(Subquery(likes_sq), 0)
-        ).values('id', 'calculated_likes').order_by('id')
+            sum_likes=Coalesce(Subquery(likes_sq), 0)
+        ).values('id', 'sum_likes').order_by('id')
 
         return qs
 
