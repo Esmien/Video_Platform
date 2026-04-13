@@ -16,4 +16,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "my_blog.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "video_platform.wsgi:application"]
