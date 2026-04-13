@@ -86,7 +86,7 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
 
         return VideoSerializer
 
-
+    @extend_schema(summary='Поставить лайк')
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def likes(self, request: Request, pk: int | None=None) -> Response:
         """
