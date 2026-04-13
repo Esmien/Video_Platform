@@ -22,9 +22,6 @@ INSTALLED_APPS = [
     'drf_spectacular',
 ]
 
-if DEBUG:
-    INSTALLED_APPS.append('django_extensions',)
-
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
@@ -50,9 +47,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
-if DEBUG:
-    MIDDLEWARE.append('whitenoise.middleware.WhiteNoiseMiddleware',)
 
 ROOT_URLCONF = 'video_platform.urls'
 
@@ -118,3 +112,25 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'sql_loguru': {
+            'level': 'DEBUG',
+            # Укажи правильный путь до твоего файла.
+            # Если logging_setup.py лежит рядом с settings.py в папке video_platform,
+            # то путь будет 'video_platform.logging_setup.SQLFormatterHandler'
+            'class': 'video_platform.logging_setup.SQLFormatterHandler',
+        },
+    },
+    'loggers': {
+        'django.db.backends': {
+            # Подключаем наш хендлер только в режиме DEBUG
+            'handlers': ['sql_loguru'] if DEBUG else [],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
