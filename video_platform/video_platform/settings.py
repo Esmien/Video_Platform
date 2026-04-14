@@ -121,18 +121,17 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    # объявляем обработчик логов
     'handlers': {
         'sql_loguru': {
             'level': 'DEBUG',
-            # Укажи правильный путь до твоего файла.
-            # Если logging_setup.py лежит рядом с settings.py в папке video_platform,
-            # то путь будет 'video_platform.logging_setup.SQLFormatterHandler'
             'class': 'video_platform.logging_setup.SQLFormatterHandler',
         },
     },
+    # выбираем обработчик в зависимости от режима
     'loggers': {
         'django.db.backends': {
-            # Подключаем наш хендлер только в режиме DEBUG
+            # loguru только в режиме DEBUG
             'handlers': ['sql_loguru'] if DEBUG else [],
             'level': 'DEBUG',
             'propagate': False,
