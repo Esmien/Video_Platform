@@ -36,7 +36,7 @@ class Command(BaseCommand):
             User.objects.bulk_create(users_to_create, batch_size=2_000)
 
             # Достаем ID созданных юзеров плоским списком
-            user_ids = list(User.objects.filter(is_superuser=False).values_list('id', flat=True))
+            user_ids = [user.id for user in users_to_create]
 
             # --- 2. Генерация видео ---
             self.stdout.write(self.style.SUCCESS('Генерация 100 000 видео...'))
@@ -52,7 +52,7 @@ class Command(BaseCommand):
             ]
 
             Video.objects.bulk_create(videos_to_create, batch_size=5_000)
-            video_ids = list(Video.objects.values_list('id', flat=True))
+            video_ids = [video.id for video in videos_to_create]
 
             # --- 3. Генерация лайков ---
             self.stdout.write(self.style.SUCCESS('Распределение лайков...'))
