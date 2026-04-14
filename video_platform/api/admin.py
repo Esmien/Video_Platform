@@ -1,6 +1,5 @@
 from django.contrib import admin
 
-from .mixins import PaginatedResponseMixin, CursorPaginationMixin
 from .models import Video, VideoFile, Like
 
 @admin.register(Video)
