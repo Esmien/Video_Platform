@@ -1,7 +1,7 @@
 from enum import StrEnum
 from django.contrib.auth import get_user_model
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, OpenApiParameter, extend_schema_view
+from drf_spectacular.utils import extend_schema, OpenApiParameter, extend_schema_view, OpenApiResponse
 from rest_framework import viewsets, status, generics
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -109,13 +109,13 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
         try:
             LikeService.put_like(user_id=user_id, video_id=video_id)
         except VideoNotFoundError:
-            return Response({'detail': self.Messages.DOES_NOT_EXIST}, status.HTTP_404_NOT_FOUND)
+            return Response(data={'detail': self.Messages.DOES_NOT_EXIST}, status=status.HTTP_404_NOT_FOUND)
         except SelfLikeError:
-            return Response({'detail': self.Messages.SELF_LIKE}, status.HTTP_400_BAD_REQUEST)
+            return Response(data={'detail': self.Messages.SELF_LIKE}, status=status.HTTP_400_BAD_REQUEST)
         except DuplicateLikeError:
-            return Response({'detail': self.Messages.DUPLICATE}, status.HTTP_400_BAD_REQUEST)
+            return Response(data={'detail': self.Messages.DUPLICATE}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'detail': self.Messages.SUCCESS}, status.HTTP_201_CREATED)
+        return Response(data={'detail': self.Messages.SUCCESS}, status=status.HTTP_201_CREATED)
 
     @extend_schema(
         summary='Список ID всех видео',
