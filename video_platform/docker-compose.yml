@@ -12,16 +12,10 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
   api:
     build: .
     restart: always
-    command: bash -c "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn video_platform.wsgi:application --bind 0.0.0.0:${SERVER_PORT}"
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
@@ -30,8 +24,7 @@ services:
     env_file:
       - .env
     depends_on:
-      db:
-        condition: service_healthy
+      - db
 
   nginx:
     image: nginx:1.25-alpine
