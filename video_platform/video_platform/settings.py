@@ -51,6 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'api.middleware.SQLQueryCountMiddleware',
 ]
 
 ROOT_URLCONF = 'video_platform.urls'
@@ -121,12 +122,16 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    # объявляем обработчик логов
+    # объявляем обработчики логов
     'handlers': {
         'sql_loguru': {
             'level': 'DEBUG',
             'class': 'video_platform.logging_setup.SQLFormatterHandler',
         },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+        }
     },
     # выбираем обработчик в зависимости от режима
     'loggers': {
@@ -134,6 +139,12 @@ LOGGING = {
             # loguru только в режиме DEBUG
             'handlers': ['sql_loguru'] if DEBUG else [],
             'level': 'DEBUG',
+            'propagate': False,
+        },
+        # добавляем логгер для middleware (уровень INFO)
+        'api.middleware': {
+            'handlers': ['console'],
+            'level': 'INFO',
             'propagate': False,
         },
     },
