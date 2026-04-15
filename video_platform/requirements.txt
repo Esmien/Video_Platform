@@ -6,3 +6,5 @@ gunicorn==25.3.0
 loguru==0.7.3
 pygments==2.20.0
 python-dotenv==1.2.2
+pytest==9.0.3
+pytest-django==4.12.0
