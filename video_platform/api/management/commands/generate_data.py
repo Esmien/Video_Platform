@@ -1,7 +1,8 @@
+import os
 import time
 import random
 from django.core.management.base import BaseCommand
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from django.db.models import OuterRef, Subquery, Count
@@ -9,12 +10,21 @@ from django.db.models.functions import Coalesce
 
 from api.models import Video, Like
 
-User = get_user_model()
-
+SUPERUSER_USERNAME = os.environ.get('SUPERUSER')
+SUPERUSER_PASSWORD = os.environ.get('SU_PASSWORD')
 class Command(BaseCommand):
     help = 'Генерация тестовых данных: 10k пользователей, 100k видео, случайные лайки'
 
     def handle(self, *args, **options):
+        if not User.objects.filter(username=SUPERUSER_USERNAME).exists():
+            User.objects.create_superuser(username=SUPERUSER_USERNAME, password=SUPERUSER_PASSWORD)
+            self.stdout.write(self.style.SUCCESS(f'Суперпользователь {SUPERUSER_USERNAME} успешно создан.'))
+
+        # Пропускаем генерацию, если данные уже в БД
+        if User.objects.filter(is_superuser=False).exists():
+            self.stdout.write(self.style.WARNING('Тестовые данные уже существуют. Пропуск генерации.'))
+            return
+
         start_time = time.time()
 
         # Оборачиваем всё в единую транзакцию. Если что-то упадет — база откатится до чистого состояния
