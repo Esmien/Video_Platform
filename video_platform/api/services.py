@@ -83,7 +83,7 @@ class VideoService:
 
         # values() перед annotate(), чтобы ОРМ сделала группировку по указанным полям и left join для видео-лайки
         qs = Video.objects.values('id').annotate(
-            calculated_likes=Count('likes')
+            sum_likes=Count('likes')
         ).order_by('id')
 
         return qs
