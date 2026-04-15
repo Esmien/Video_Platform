@@ -88,7 +88,7 @@ class TestVideoAPI:
         data = response.data['results'] if 'results' in response.data else response.data
         if len(data) > 0:
             assert 'id' in data[0]
-            assert 'sum_likes' in data[0]
+            assert 'total_likes' in data[0]
 
     def test_get_statistics_subquery(self, client, user_owner, video_pub):
         response = client.get('/v1/videos/statistics-subquery/')
@@ -98,4 +98,4 @@ class TestVideoAPI:
         data = response.data['results'] if 'results' in response.data else response.data
         if len(data) > 0:
             assert 'id' in data[0]
-            assert 'sum_likes' in data[0]
+            assert 'total_likes' in data[0]
