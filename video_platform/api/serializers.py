@@ -47,3 +47,8 @@ class VideoExpandedSerializer(serializers.ModelSerializer):
 
     class Meta(VideoSerializer.Meta):
         fields = ('id', 'name', 'created_at', 'owner_id', 'owner')
+
+
+class VideoStatisticsSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    total_likes = serializers.IntegerField(source='sum_likes')

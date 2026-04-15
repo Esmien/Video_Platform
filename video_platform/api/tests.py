@@ -42,10 +42,10 @@ class TestVideoAPI:
         response = client.get(f'/v1/videos/{video_priv.id}/')
         assert response.status_code == 200
 
-    def test_get_private_video_by_guest_returns_404(self, client, user_guest, video_priv):
+    def test_get_private_video_by_guest_returns_403(self, client, user_guest, video_priv):
         client.force_authenticate(user=user_guest)
         response = client.get(f'/v1/videos/{video_priv.id}/')
-        assert response.status_code == 404
+        assert response.status_code == 403
 
     def test_video_detail_user_expand(self, client, video_pub):
         response = client.get(f'/v1/videos/{video_pub.id}/?user_expand=true')

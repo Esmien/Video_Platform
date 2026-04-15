@@ -12,7 +12,7 @@ from django.db.models import Q
 from .exceptions import VideoNotFoundError, SelfLikeError, DuplicateLikeError
 from .mixins import PaginatedResponseMixin, CursorPaginationMixin
 from .models import Video
-from .serializers import VideoSerializer, VideoExpandedSerializer, RegisterSerializer
+from .serializers import VideoSerializer, VideoExpandedSerializer, RegisterSerializer, VideoStatisticsSerializer
 from .permissions import IsPublishedOrOwner
 from .services import LikeService, VideoService
 
@@ -74,17 +74,17 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
     permission_classes = [IsPublishedOrOwner]
 
     def get_queryset(self):
+        # делаем inner join с User, подтягивая таблицу с пользователями
+        qs = Video.objects.select_related('owner').all()
 
-        user = self.request.user
+        # отдаем список опубликованных видео либо список видео автора
+        if self.action == 'list':
+            if self.request.user.is_authenticated:
+                qs = qs.filter(Q(is_published=True) | Q(owner=self.request.user))
+            else:
+                qs = qs.filter(is_published=True)
 
-        # Если пользователь авторизован, отдаем публичные видео ИЛИ его собственные
-        if user.is_authenticated:
-            return Video.objects.filter(
-                Q(is_published=True) | Q(owner=user)
-            ).select_related('owner') # делаем inner join с User, подтягивая таблицу с пользователями
-
-        # Для неавторизованных отдаем только публичные
-        return Video.objects.filter(is_published=True).select_related('owner')
+        return qs
 
     def get_serializer_class(self):
         # Обрабатываем параметр ?user_expand=true для детального просмотра
@@ -92,6 +92,8 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
             expand = self.request.query_params.get('user_expand', '').lower() == 'true'
             if expand:
                 return VideoExpandedSerializer
+        if self.action in ('statistics_subquery', 'statistics_group_by'):
+            return VideoStatisticsSerializer
 
         return VideoSerializer
 
@@ -134,7 +136,8 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
 
         video_ids = VideoService.get_video_ids()
 
-        return self._get_paginated_response(queryset=video_ids)
+        response_data = self._get_paginated_response(queryset=video_ids)
+        return Response(data=response_data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary='Статистика через подзапрос',
@@ -153,7 +156,8 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
 
         qs = VideoService.get_statistics_subquery()
 
-        return self._get_paginated_response(queryset=qs)
+        response_data = self._get_paginated_response(queryset=qs, is_serializer=True)
+        return Response(data=response_data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary='Статистика через GROUP BY',
@@ -172,4 +176,5 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
         # values() перед annotate(), чтобы ОРМ сделала группировку по указанным полям и left join для видео-лайки
         qs = VideoService.get_statistics_group_by()
 
-        return self._get_paginated_response(queryset=qs)
+        response_data = self._get_paginated_response(queryset=qs, is_serializer=True)
+        return Response(data=response_data, status=status.HTTP_200_OK)
