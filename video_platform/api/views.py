@@ -74,17 +74,17 @@ class VideoViewSet(CursorPaginationMixin, PaginatedResponseMixin, viewsets.ReadO
     permission_classes = [IsPublishedOrOwner]
 
     def get_queryset(self):
-        # делаем inner join с User, подтягивая таблицу с пользователями
-        qs = Video.objects.select_related('owner').all()
 
-        # отдаем список опубликованных видео либо список видео автора
-        if self.action == 'list':
-            if self.request.user.is_authenticated:
-                qs = qs.filter(Q(is_published=True) | Q(owner=self.request.user))
-            else:
-                qs = qs.filter(is_published=True)
+        user = self.request.user
 
-        return qs
+        # Если пользователь авторизован, отдаем публичные видео ИЛИ его собственные
+        if user.is_authenticated:
+            return Video.objects.filter(
+                Q(is_published=True) | Q(owner=user)
+            ).select_related('owner') # делаем inner join с User, подтягивая таблицу с пользователями
+
+        # Для неавторизованных отдаем только публичные
+        return Video.objects.filter(is_published=True).select_related('owner')
 
     def get_serializer_class(self):
         # Обрабатываем параметр ?user_expand=true для детального просмотра
