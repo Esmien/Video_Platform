@@ -1,8 +1,6 @@
 from django.db.models import QuerySet
-from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
-from rest_framework.serializers import BaseSerializer
 
 from .paginators import VideoCursorPagination
 
