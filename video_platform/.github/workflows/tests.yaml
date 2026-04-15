@@ -1,0 +1,40 @@
+name: Django CI/CD
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create .env file for testing
+        # Генерируем фейковый .env файл, чтобы контейнеры успешно запустились.
+        run: |
+          echo "SECRET_KEY=secret-key-for-github-actions" >> .env
+          echo "DEBUG=True" >> .env
+          echo "ALLOWED_HOSTS=*" >> .env
+          echo "SERVER_PORT=8000" >> .env
+          echo "NGINX_PORT=80" >> .env
+          echo "SUPERUSER=admin" >> .env
+          echo "SU_PASSWORD=1111" >> .env
+          echo "DB_NAME=test_db" >> .env
+          echo "DB_USER=test_user" >> .env
+          echo "DB_PASSWORD=test_pass" >> .env
+          echo "DB_HOST=db" >> .env
+          echo "DB_PORT=5432" >> .env
+
+      - name: Build and start Docker containers
+        run: docker compose up --build -d
+
+      - name: Wait for infrastructure to be ready
+        run: sleep 15
+
+      - name: Run Pytest
+        run: docker compose exec -T api pytest
