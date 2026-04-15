@@ -14,6 +14,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Копируем скрипт и даем права на выполнение
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "video_platform.wsgi:application"]
+# Устанавливаем скрипт как точку входа
+ENTRYPOINT ["/app/entrypoint.sh"]
