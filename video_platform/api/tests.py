@@ -1,7 +1,8 @@
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
-from api.models import Video, Like
+from api.models import Video, Like, VideoFile
 
 User = get_user_model()
 
@@ -99,3 +100,32 @@ class TestVideoAPI:
         if len(data) > 0:
             assert 'id' in data[0]
             assert 'total_likes' in data[0]
+
+    def test_file_deleted_on_model_delete(self, video_pub):
+        """Проверяет, что сигнал post_delete удаляет физический файл"""
+
+        # 1. Генерируем фейковый файл в памяти
+        dummy_file = SimpleUploadedFile(
+            name='test_video_signal.mp4',
+            content=b'dummy video content',
+            content_type='video/mp4'
+        )
+
+        # 2. Создаем запись в БД (Django сохранит файл на диск в media/videos/)
+        video_file = VideoFile.objects.create(
+            video=video_pub,
+            quality='HD',
+            file=dummy_file
+        )
+
+        # Запоминаем абсолютный путь к файлу на диске
+        file_path = video_file.file.path
+
+        # Убеждаемся, что файл действительно создался (иначе тест не имеет смысла)
+        assert os.path.exists(file_path) is True
+
+        # 3. Удаляем запись из БД (здесь должен сработать наш сигнал)
+        video_file.delete()
+
+        # 4. Проверяем, что физического файла по этому пути больше нет
+        assert os.path.exists(file_path) is False
